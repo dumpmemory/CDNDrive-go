@@ -98,7 +98,7 @@ func main() {
 					//driver过滤，顺便去重
 					ds := make(map[string]drivers.Driver)
 					for _, name := range strings.Split(c.String("driver"), ",") {
-						_d := queryDriverByName(name)
+						_d := getDriverByName(name)
 						if _d != nil {
 							ds[name] = _d
 						}
@@ -132,7 +132,7 @@ func main() {
 					//driver过滤，顺便去重
 					ds := make(map[string]drivers.Driver)
 					for _, name := range strings.Split(c.String("driver"), ",") {
-						_d := queryDriverByName(name)
+						_d := getDriverByName(name)
 						if _d != nil {
 							ds[name] = _d
 						}
