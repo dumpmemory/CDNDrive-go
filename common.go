@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"time"
 
 	"github.com/gookit/color"
@@ -39,7 +40,7 @@ func loadDrivers() {
 }
 
 // metaURL -> Driver
-func queryDriverByMetaLink(metaURL string) drivers.Driver {
+func getDriverByMetaLink(metaURL string) drivers.Driver {
 	for _, d := range _drivers {
 		//Meta2Real成功就说明是对应driver的链接
 		if d.Meta2Real(metaURL) != "" {
@@ -49,7 +50,7 @@ func queryDriverByMetaLink(metaURL string) drivers.Driver {
 	return nil
 }
 
-func queryDriverByName(name string) drivers.Driver {
+func getDriverByName(name string) drivers.Driver {
 	for _, d := range _drivers {
 		if name == d.Name() {
 			return d
@@ -134,4 +135,15 @@ func FormatTime(t int64) string {
 	year, mon, day := tt.Date()
 	hour, min, sec := tt.Clock()
 	return fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", year, mon, day, hour, min, sec)
+}
+
+func randSource(m map[string][]metaJSON_Block) (drivers.Driver, []metaJSON_Block) {
+	r := rand.Intn(len(m))
+	for k, v := range m {
+		if r == 0 {
+			return getDriverByName(k), v
+		}
+		r--
+	}
+	panic("unreachable")
 }

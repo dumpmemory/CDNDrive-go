@@ -55,7 +55,7 @@ func (c *userCookieJson) setDriveCookie(name, cookie string, skipCheck bool) (er
 	//检查cookie有效性
 	if !skipCheck {
 		var ok bool
-		if ok, err = queryDriverByName(name).CheckCookie(cookie); !ok {
+		if ok, err = getDriverByName(name).CheckCookie(cookie); !ok {
 			return
 		}
 	}
