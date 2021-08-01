@@ -119,9 +119,7 @@ func (d *DriverBilibili) CheckCookie(cookie string) (bool, error) {
 	return false, errors.New("bilibili: " + string(data))
 }
 
-func (d *DriverBilibili) Upload(_data []byte, ctx context.Context, client *http.Client, cookie, sha1sum string) (string, error) {
-	//编码图片
-	data := (&encoders.EncoderPNGBMP{}).Encode(_data)
+func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.Client, cookie string) (string, error) {
 	//查重
 	sha1sum_photo := fmt.Sprintf("%x", sha1.Sum(data))
 	if e, _ := d.Exist(sha1sum_photo); e {
@@ -130,6 +128,7 @@ func (d *DriverBilibili) Upload(_data []byte, ctx context.Context, client *http.
 
 	//表单上传
 	var b bytes.Buffer
+	defer b.Reset()
 	w := multipart.NewWriter(&b)
 	w2, _ := w.CreateFormFile("file_up", sha1sum_photo+".png")
 	w2.Write(data)

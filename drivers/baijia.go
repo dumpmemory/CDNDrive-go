@@ -84,9 +84,7 @@ func (d *DriverBaijia) CheckCookie(cookie string) (bool, error) {
 	return true, nil
 }
 
-func (d *DriverBaijia) Upload(_data []byte, ctx context.Context, client *http.Client, cookie, sha1sum string) (string, error) {
-	//编码图片
-	data := (&encoders.EncoderPNGBMP{}).Encode(_data)
+func (d *DriverBaijia) Upload(data []byte, ctx context.Context, client *http.Client, cookie string) (string, error) {
 	//查重
 	md5sum := fmt.Sprintf("%x", md5.Sum(data))
 	if e, _ := d.Exist(md5sum); e {
@@ -95,6 +93,7 @@ func (d *DriverBaijia) Upload(_data []byte, ctx context.Context, client *http.Cl
 
 	//表单上传
 	var b bytes.Buffer
+	defer b.Reset()
 	w := multipart.NewWriter(&b)
 	w2, _ := w.CreateFormFile("media", md5sum+".png")
 	w2.Write(data)
