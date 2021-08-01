@@ -61,6 +61,9 @@ func (c *userCookieJson) setDriveCookie(name, cookie string, skipCheck bool) (er
 	}
 
 	c.Cookie[name] = cookie
+
+	c.fp.Truncate(0)
+	c.fp.Seek(0, 0)
 	err = json.NewEncoder(c.fp).Encode(c)
 	if err != nil {
 		return
