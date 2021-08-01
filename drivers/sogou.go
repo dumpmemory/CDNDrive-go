@@ -89,9 +89,7 @@ func (d *DriverSogou) CheckCookie(cookie string) (bool, error) {
 	return true, nil
 }
 
-func (d *DriverSogou) Upload(_data []byte, ctx context.Context, client *http.Client, cookie, sha1sum string) (string, error) {
-	//编码图片
-	data := (&encoders.EncoderPNGBMP{}).Encode(_data)
+func (d *DriverSogou) Upload(data []byte, ctx context.Context, client *http.Client, cookie string) (string, error) {
 	//查重
 	md5sum := fmt.Sprintf("%x", md5.Sum(data))
 	hash := fmt.Sprintf("100520146/%s", strings.ToUpper(md5sum))
@@ -101,6 +99,7 @@ func (d *DriverSogou) Upload(_data []byte, ctx context.Context, client *http.Cli
 
 	//表单上传
 	var b bytes.Buffer
+	defer b.Reset()
 	w := multipart.NewWriter(&b)
 
 	//就你这么麻烦

@@ -76,6 +76,10 @@ func (e *EncoderPNGBMP) Encode(data []byte) []byte {
 	//RGBA<->RGB?????
 	var pngbuf bytes.Buffer
 	png.Encode(&pngbuf, &RGB{Bytes: buf.Bytes(), Side: side})
+
+	defer buf.Reset()
+	defer pngbuf.Reset()
+
 	return pngbuf.Bytes()
 }
 

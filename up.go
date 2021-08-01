@@ -134,7 +134,7 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 	sha1_4m = sha1_4m //TODO save history
 
 	//发送任务
-	lock := &sync.Mutex{}
+	lock := &sync.Mutex{} //TODO 这是什么锁
 	ctx, cancel := context.WithCancel(context.Background())
 
 	chanTasks := make([]chan *metaJSON_Block, driverN)
@@ -143,6 +143,15 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 	finishurls := make([][]string, driverN)
 	ctxs := make([]context.Context, driverN)
 	cancels := make([]context.CancelFunc, driverN)
+
+	cache := &worker_up_cache{
+		lock_encode:        &sync.Mutex{},
+		photoCacheProducer: make([]int, blockN),
+		photoCacheCounter:  make([]int, blockN),
+		photoCacheWaiter:   make([]*sync.WaitGroup, blockN),
+		photoCache:         make([][]byte, blockN),
+	}
+
 	for i, _ := range chanTasks {
 		chanTasks[i] = make(chan *metaJSON_Block, blockN)
 		chanStatus[i] = make(chan int)
@@ -204,7 +213,7 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 
 						try_max := 10
 						for i := 0; i < try_max; i++ { //尝试10次
-							url, err := d.Upload(data, ctx, http.DefaultClient, cookie, sha1sum)
+							url, err := d.Upload(d.Encoder().Encode(data), ctx, http.DefaultClient, cookie)
 
 							if err != nil {
 								if i < try_max-1 {
@@ -228,7 +237,13 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 		}(_d, ii)
 
 		for j := 0; j < threadN; j++ {
-			go worker_up(chanTasks[ii], chanStatus[ii], ctxs[ii], j, cookie, _d, f, lock, finishMaps[ii], finishurls[ii])
+			up := &worker_up{
+				driverN:  driverN,
+				workerID: j,
+				cache:    cache,
+			}
+
+			go up.up(chanTasks[ii], chanStatus[ii], ctxs[ii], cookie, _d, f, lock, finishMaps[ii], finishurls[ii])
 		}
 
 		ii++
@@ -238,7 +253,24 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 	cancel()
 }
 
-func worker_up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx context.Context, workerID int, cookie string, d drivers.Driver, f *os.File, lock *sync.Mutex, finishMap []bool, finishurls []string) {
+//缓存图片
+type worker_up_cache struct {
+	lock_encode        *sync.Mutex
+	photoCache         [][]byte
+	photoCacheProducer []int
+	photoCacheCounter  []int
+	photoCacheWaiter   []*sync.WaitGroup
+}
+
+//TODO 迁移参数
+type worker_up struct {
+	workerID int
+	driverN  int
+
+	cache *worker_up_cache
+}
+
+func (p *worker_up) up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx context.Context, cookie string, d drivers.Driver, f *os.File, lock *sync.Mutex, finishMap []bool, finishurls []string) {
 	client := &http.Client{}
 	for {
 		select {
@@ -248,30 +280,72 @@ func worker_up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx context.C
 			try_max := 10
 			for i := 0; i < try_max; i++ { //尝试10次
 				err := func() (err error) {
-					//读取文件内容
+					var photo []byte
+					var wait bool
+
 					lock.Lock()
-					f.Seek(task.offset, 0)
-					data := make([]byte, task.Size)
-					_, err = f.Read(data)
-					if err != nil {
-						return
+					if p.cache.photoCacheProducer[task.i] == 0 {
+						wait = true
+						p.cache.photoCacheProducer[task.i] = 1 //在做了在做了
+
+						p.cache.photoCacheWaiter[task.i] = &sync.WaitGroup{}
+						p.cache.photoCacheWaiter[task.i].Add(1)
+
+						go func() {
+							p.cache.lock_encode.Lock()
+							defer p.cache.lock_encode.Unlock()
+
+							//读取文件内容
+							f.Seek(task.offset, 0)
+							data := make([]byte, task.Size)
+							_, err = f.Read(data)
+							if err != nil {
+								return
+							}
+
+							//sha1sum 只计算一次
+							var sha1sum string
+							if task.Sha1 == "" {
+								sha1sum = fmt.Sprintf("%x", sha1.Sum(data))
+								task.Sha1 = sha1sum
+							} else {
+								sha1sum = task.Sha1
+							}
+
+							//这个encode特别耗CPU和内存
+							//TODO 这样变成只用一个CPU编码了...
+							p.cache.photoCache[task.i] = d.Encoder().Encode(data)
+
+							p.cache.photoCacheWaiter[task.i].Done()
+							p.cache.photoCacheProducer[task.i] = 2 //好了
+						}() //防卡
+					} else if p.cache.photoCacheProducer[task.i] == 1 {
+						wait = true
 					}
 					lock.Unlock()
 
-					//sha1sum 只计算一次
-					var sha1sum string
-					if task.Sha1 == "" { //好像这样还是会多次计算...
-						sha1sum = fmt.Sprintf("%x", sha1.Sum(data))
-						task.Sha1 = sha1sum
-					} else {
-						sha1sum = task.Sha1
+					//获编码好的图片
+					if wait { //防卡
+						p.cache.photoCacheWaiter[task.i].Wait()
 					}
+					photo = p.cache.photoCache[task.i]
 
 					//防卡？
 					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Minute))
 
 					//上传，这里task共用所以不能设置url
-					finishurls[task.i], err = d.Upload(data, ctx2, client, cookie, sha1sum)
+					finishurls[task.i], err = d.Upload(photo, ctx2, client, cookie)
+
+					//清理缓存
+					if err == nil || i == try_max-1 {
+						p.cache.photoCacheCounter[task.i]++
+						if p.cache.photoCacheCounter[task.i] == p.driverN {
+							p.cache.photoCache[task.i] = nil
+							if _debug {
+								colorLogger.Println("<green>free:", task.i, "</>")
+							}
+						}
+					}
 
 					cancel()
 					return
