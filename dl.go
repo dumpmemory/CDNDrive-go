@@ -43,12 +43,22 @@ func HandlerDownload(args []string, forceHTTPS bool, threadN int, batch bool) {
 				break
 			}
 
-			driver := getDriverByMetaLink(line)
-			if driver == nil {
+			metas := strings.Split(line, "+") //可能是meta的东西
+			sources := make([]string, 0)
+			for _, meta := range metas {
+				driver := getDriverByMetaLink(meta)
+				if driver == nil {
+					continue
+				}
+				sources = append(sources, driver.Real2Meta(driver.Meta2Real(meta))) //TODO 这样不兼容bdrive
+			}
+
+			if len(sources) == 0 {
 				continue
 			}
-			metaurls = append(metaurls, driver.Real2Meta(driver.Meta2Real(line))) //TODO 这样不兼容bdrive
+			metaurls = append(metaurls, strings.Join(sources, "+"))
 		}
+
 		if len(metaurls) > 0 {
 			color.Println(txt_batchdl, "检测到", len(metaurls), "个链接，开始下载。")
 		} else {
@@ -60,7 +70,6 @@ func HandlerDownload(args []string, forceHTTPS bool, threadN int, batch bool) {
 			color.Println(txt_batchdl, "正在下载第", i+1, "/", len(metaurls), "个文件")
 			download(strings.Split(metaurl, "+"), threadN, forceHTTPS)
 		}
-
 	} else {
 		download(strings.Split(args[0], "+"), threadN, forceHTTPS)
 	}
@@ -95,11 +104,11 @@ func download(metalinks []string, threadN int, forceHTTPS bool) {
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			colorLogger.Println(err.Error())
-			return
+			continue
 		}
 		if resp.Body == nil {
 			colorLogger.Println(txt_CannotDownload)
-			return
+			continue
 		}
 		defer resp.Body.Close()
 
@@ -107,13 +116,13 @@ func download(metalinks []string, threadN int, forceHTTPS bool) {
 		data, err := readPhotoBytes(resp.Body, d.Encoder())
 		if err != nil {
 			colorLogger.Println(txt_CannotDownload, metalink, "readPhotoBytes:", err.Error())
-			return
+			continue
 		}
 		v2 := &metaJSON{}
 		err = json.Unmarshal(data, v2)
 		if err != nil {
 			colorLogger.Println(txt_CannotDownload, metalink, "json.Unmarshal:", err.Error())
-			return
+			continue
 		}
 
 		//判断各个链接是否为同一个文件
@@ -129,7 +138,7 @@ func download(metalinks []string, threadN int, forceHTTPS bool) {
 		//准备
 		sources[d.Name()] = v2.BlockDicts
 
-		colorLogger.Println("<fg=black;bg=green>发现文件：</>", d.DisplayName()+"<yellow>"+v.FileName+"</> 大小", ConvertFileSize(v.Size), "创建时间", FormatTime(v.Time), "分块数", blockN, "sha1:", v.Sha1)
+		colorLogger.Println("<fg=black;bg=green>发现文件：</>", d.DisplayName(), "<yellow>"+v.FileName+"</> 大小", ConvertFileSize(v.Size), "创建时间", FormatTime(v.Time), "分块数", blockN, "sha1:", v.Sha1)
 	}
 
 	if v == nil {
