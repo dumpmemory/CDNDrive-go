@@ -226,6 +226,9 @@ func download(metalinks []string, threadN int, forceHTTPS bool) {
 
 				finishMap[finishedBlockID] = true
 				finishedBlockCounter++
+				if _debug {
+					fmt.Println(finishedBlockCounter)
+				}
 
 				if finishedBlockCounter == blockN {
 					os.Remove(v.FileName + ".cdndrive")
@@ -259,7 +262,10 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 
 				err := func() (err error) {
 					//下载分块图片
+					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30))
+					defer cancel()
 					req, _ := http.NewRequest("GET", _forcehttpsURL(blockDict[task.i].URL, forceHTTPS), nil)
+					req = req.WithContext(ctx2)
 					for k, v := range d.Headers() {
 						req.Header.Set(k, v)
 					}
