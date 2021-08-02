@@ -7,20 +7,30 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha1"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type DriverBilibili struct {
 	app_key      string
 	default_url  string
 	default_hdrs map[string]string
+
+	proxyPoolURL      string
+	proxyTime         time.Duration
+	ratelimitUntil    int64 //现在是遇到一次 412 之后打开，看看这样能不能减缓 412
+	ratelimitLockPath string
 }
 
 func NewDriverBilibili() *DriverBilibili {
@@ -34,6 +44,19 @@ func NewDriverBilibili() *DriverBilibili {
 		"Referer":         "https://t.bilibili.com/",
 	}
 	d.default_url = "http://i0.hdslb.com/bfs/album/{sha1}.png"
+
+	//读取ratelimit时间
+	d.ratelimitLockPath = filepath.Join(os.TempDir(), "cdndrive-bilibili-ratelimit-until")
+	f, _ := os.OpenFile(d.ratelimitLockPath, os.O_RDONLY, 0644)
+	if f != nil {
+		b := make([]byte, 8)
+		n, _ := f.Read(b)
+		if n == 8 {
+			d.ratelimitUntil = int64(binary.BigEndian.Uint64(b))
+		}
+		f.Close()
+	}
+
 	return d
 }
 
@@ -144,6 +167,34 @@ func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.C
 	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
+	//可能需要代理
+	shouldUseProxy := func() bool {
+		return d.proxyPoolURL != "" && time.Now().Unix() < d.ratelimitUntil
+	}
+	if shouldUseProxy() {
+		resp2, err := http.Get(d.proxyPoolURL)
+		if err != nil {
+			return "", err
+		}
+
+		defer resp2.Body.Close()
+		v2 := make(map[string]interface{})
+		err = json.NewDecoder(resp2.Body).Decode(&v2)
+		if err != nil {
+			return "", err
+		}
+
+		if a, ok := v2["proxy"].(string); ok {
+			uri, err := url.Parse("http://" + a)
+			if err != nil {
+				return "", err
+			}
+			client.Transport = &http.Transport{
+				Proxy: http.ProxyURL(uri),
+			}
+		}
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -171,10 +222,24 @@ func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.C
 			return "", errors.New("校验值不一致")
 		}
 		return d.GenURL(matchs[1]), nil
+	} else if a == 412 && !shouldUseProxy() { //TODO by ip
+		d.ratelimitUntil = time.Now().Add(d.proxyTime).Unix()
+
+		f, _ := os.OpenFile(d.ratelimitLockPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+		b := make([]byte, 8)
+		binary.BigEndian.PutUint64(b, uint64(d.ratelimitUntil))
+		f.Write(b)
+		f.Close()
+		return "", errors.New(fmt.Sprintf("bilibili %f: %s", v["code"], v["message"]))
 	} else {
 		return "", errors.New(fmt.Sprintf("bilibili %f: %s", v["code"], v["message"]))
 	}
 
+}
+
+func (d *DriverBilibili) SetProxyPool(url string, proxyTime int) {
+	d.proxyPoolURL = url
+	d.proxyTime = time.Minute * time.Duration(int64(proxyTime))
 }
 
 func ReadAllDecompress(resp *http.Response) ([]byte, error) {

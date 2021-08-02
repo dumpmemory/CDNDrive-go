@@ -87,6 +87,13 @@ func main() {
 						Aliases: []string{"b"},
 						Usage:   "分块大小，单位为字节",
 						Value:   4 * 1024 * 1024,
+					}, &cli.StringFlag{
+						Name:  "proxy-pool",
+						Usage: "代理池，对抗 bilibili 限制，遇到 412 才启用。",
+					}, &cli.IntFlag{
+						Name:  "proxy-time",
+						Usage: "遇到 bilibili 412 时，启用代理的时间，单位为分钟。",
+						Value: 10,
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -109,6 +116,7 @@ func main() {
 						}()
 					}
 
+					getDriverByName("bili").(*drivers.DriverBilibili).SetProxyPool(c.String("proxy-pool"), c.Int("proxy-time"))
 					HandlerUpload(c.Args().Slice(), ds, c.Int("thread"), c.Int("block-size"))
 					return nil
 				},
