@@ -234,7 +234,6 @@ func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.C
 	} else {
 		return "", errors.New(fmt.Sprintf("bilibili %f: %s", v["code"], v["message"]))
 	}
-
 }
 
 func (d *DriverBilibili) SetProxyPool(url string, proxyTime int) {

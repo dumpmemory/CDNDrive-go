@@ -72,7 +72,7 @@ func (c *userCookieJson) setDriveCookie(name, cookie string, skipCheck bool) (er
 	return
 }
 
-func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blockSize int) {
+func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blockSize int, cacheSize int) {
 	txt_uploadFail := "<fg=black;bg=red>上传失败：</>"
 
 	cookieJson := loadUserCookie()
@@ -148,11 +148,13 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 	cancels := make([]context.CancelFunc, driverN)
 
 	cache := &worker_up_cache{
-		lock_encode:        &sync.Mutex{},
-		photoCacheProducer: make([]int, blockN),
-		photoCacheCounter:  make([]int, blockN),
-		photoCacheWaiter:   make([]*sync.WaitGroup, blockN),
-		photoCache:         make([][]byte, blockN),
+		lock_encode:               &sync.Mutex{},
+		photoCacheProducer:        make([]int, blockN),
+		photoCacheFinishedCounter: make([]int, blockN),
+		photoCacheWaiter:          make([]*sync.WaitGroup, blockN),
+		photoCache:                make([][]byte, blockN),
+		driverN:                   driverN,
+		cacheSize:                 cacheSize,
 	}
 
 	for i, _ := range chanTasks {
@@ -186,6 +188,7 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 				case finishedBlockID := <-chanStatus[ii]:
 					if finishedBlockID < 0 { //负数是出错代码，此时该driver退出
 						colorLogger.Println(txt_uploadFail, d.DisplayName(), fileName_display)
+						cache.driverN-- //免得又内存泄露，，，
 						cancels[ii]()
 						return
 					}
@@ -241,7 +244,6 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 
 		for j := 0; j < threadN; j++ {
 			up := &worker_up{
-				driverN:  driverN,
 				workerID: j,
 				cache:    cache,
 			}
@@ -258,17 +260,19 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 
 //缓存图片
 type worker_up_cache struct {
-	lock_encode        *sync.Mutex
-	photoCache         [][]byte
-	photoCacheProducer []int
-	photoCacheCounter  []int
-	photoCacheWaiter   []*sync.WaitGroup
+	lock_encode               *sync.Mutex
+	photoCache                [][]byte
+	photoCacheProducer        []int
+	photoCacheFinishedCounter []int
+	photoCacheWaiter          []*sync.WaitGroup
+	driverN                   int
+	cacheCounter              int
+	cacheSize                 int
 }
 
 //TODO 迁移参数
 type worker_up struct {
 	workerID int
-	driverN  int
 
 	cache *worker_up_cache
 }
@@ -297,6 +301,11 @@ func (p *worker_up) up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx c
 						go func() {
 							p.cache.lock_encode.Lock()
 							defer p.cache.lock_encode.Unlock()
+							p.cache.cacheCounter++
+							for p.cache.cacheCounter >= p.cache.cacheSize { //手动限制内存，，，
+								colorLogger.Println("<red>缓存过多，进入等待模式</>")
+								time.Sleep(time.Second * 10)
+							}
 
 							//读取文件内容
 							f.Seek(task.offset, 0)
@@ -334,18 +343,20 @@ func (p *worker_up) up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx c
 					photo = p.cache.photoCache[task.i]
 
 					//防卡？
-					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Minute))
+					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30))
 
 					//上传，这里task共用所以不能设置url
 					finishurls[task.i], err = d.Upload(photo, ctx2, client, cookie)
 
 					//清理缓存
 					if err == nil || i == try_max-1 {
-						p.cache.photoCacheCounter[task.i]++
-						if p.cache.photoCacheCounter[task.i] == p.driverN {
+						p.cache.photoCacheFinishedCounter[task.i]++
+						if p.cache.photoCacheFinishedCounter[task.i] >= p.cache.driverN {
 							p.cache.photoCache[task.i] = nil
+							p.cache.cacheCounter--
 							if _debug {
 								colorLogger.Println("<green>free:", task.i, "</>")
+								//TODO 全部清理完之后还有400M不知道什么东西，是不是http那边泄露的...
 							}
 						}
 					}
