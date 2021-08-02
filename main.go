@@ -43,7 +43,7 @@ func main() {
 	app := &cli.App{
 		Name:    "CDNDrive-go",
 		Usage:   "Make Picbeds Great Cloud Storages!",
-		Version: "v0.1",
+		Version: "v0.2",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:  "debug",

@@ -330,6 +330,10 @@ func (p *worker_up) up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx c
 
 							p.cache.photoCacheWaiter[task.i].Done()
 							p.cache.photoCacheProducer[task.i] = 2 //好了
+
+							if _debug {
+								colorLogger.Println("<cyan>Encoded:", task.i, "</>")
+							}
 						}() //防卡
 					} else if p.cache.photoCacheProducer[task.i] == 1 {
 						wait = true

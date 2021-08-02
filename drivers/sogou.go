@@ -16,6 +16,7 @@ import (
 )
 
 //TODO 搜狗上传时 http 经常输出错误日志到 stderr
+//TODO 搜狗上传完之后图片很快就被删除了，草
 
 type DriverSogou struct {
 	default_url  string
