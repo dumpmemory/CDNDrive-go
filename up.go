@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/urfave/cli/v2"
 )
 
 // /tmp/cdndrive-go.conf 保存用户 cookie 信息
@@ -72,10 +74,13 @@ func (c *userCookieJson) setDriveCookie(name, cookie string, skipCheck bool) (er
 	return
 }
 
-func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blockSize int, cacheSize int) {
+func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) {
 	txt_uploadFail := "<fg=black;bg=red>上传失败：</>"
 
 	cookieJson := loadUserCookie()
+	blockSize := c.Int("block-size")
+	threadN := c.Int("thread")
+	blockTimeout := c.Int("timeout")
 
 	//打开文件，读取信息
 	//TODO 上传多个文件？
@@ -103,12 +108,6 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 			blocks_dict[i].Size = blockSize
 		}
 		_offset += int64(blockSize)
-
-		//Sha1给下面worker算？
-
-		if false { //TODO 续传
-			continue
-		}
 	}
 	colorLogger.Println("<fg=black;bg=green>正在上传：</><yellow>", f.Name(), "</>大小", ConvertFileSize(fileSize), "分块数", blockN, "分块大小", blockSize, "正在计算 sha1sum")
 	if fileSize <= 0 {
@@ -154,7 +153,7 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 		photoCacheWaiter:          make([]*sync.WaitGroup, blockN),
 		photoCache:                make([][]byte, blockN),
 		driverN:                   driverN,
-		cacheSize:                 cacheSize,
+		cacheSize:                 c.Int("cache-size"),
 	}
 
 	for i, _ := range chanTasks {
@@ -195,7 +194,6 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 
 					finishMaps[ii][finishedBlockID] = true
 					finishedBlockCounter++
-					//TODO 上传在这里保存进度请
 
 					if finishedBlockCounter == blockN {
 						colorLogger.Println(d.DisplayName(), "上传完成，开始编码并上传索引图片。")
@@ -244,8 +242,9 @@ func HandlerUpload(args []string, ds map[string]drivers.Driver, threadN int, blo
 
 		for j := 0; j < threadN; j++ {
 			up := &worker_up{
-				workerID: j,
-				cache:    cache,
+				workerID:     j,
+				cache:        cache,
+				blockTimeout: blockTimeout,
 			}
 
 			go up.up(chanTasks[ii], chanStatus[ii], ctxs[ii], cookie, _d, f, lock, finishMaps[ii], finishurls[ii])
@@ -272,7 +271,8 @@ type worker_up_cache struct {
 
 //TODO 迁移参数
 type worker_up struct {
-	workerID int
+	workerID     int
+	blockTimeout int
 
 	cache *worker_up_cache
 }
@@ -347,7 +347,7 @@ func (p *worker_up) up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx c
 					photo = p.cache.photoCache[task.i]
 
 					//防卡？
-					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30))
+					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*time.Duration(p.blockTimeout)))
 
 					//上传，这里task共用所以不能设置url
 					finishurls[task.i], err = d.Upload(photo, ctx2, client, cookie)
@@ -373,7 +373,7 @@ func (p *worker_up) up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx c
 					if i < try_max-1 {
 						colorLogger.Println(d.DisplayName(), "分块", task.i+1, "第", i+1, "次上传失败，重试。")
 					} else {
-						colorLogger.Println(d.DisplayName(), "分块", task.i+1, "第", i+1, "次下载失败，不重试，文件上传失败。")
+						colorLogger.Println(d.DisplayName(), "分块", task.i+1, "第", i+1, "次上传失败，不重试，文件上传失败。")
 						chanStatus <- -1 //停止代码 -1 上传失败
 					}
 				} else {

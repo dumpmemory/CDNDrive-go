@@ -59,13 +59,14 @@ func getDriverByName(name string) drivers.Driver {
 	return nil
 }
 
-//resp.Body -> []byte
-func readPhotoBytes(r io.Reader, e encoders.Encoder) ([]byte, error) {
+//resp.Body(photo) -> []byte(file) int=downloadedPhotoSize
+func readPhotoBytes(r io.Reader, e encoders.Encoder) ([]byte, error, int) {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, err
+		return nil, err, len(b)
 	}
-	return e.Decode(b)
+	c, d := e.Decode(b)
+	return c, d, len(b)
 }
 
 type colorLogger_t struct {

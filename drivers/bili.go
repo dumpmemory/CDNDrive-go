@@ -14,7 +14,6 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -27,9 +26,8 @@ type DriverBilibili struct {
 	default_url  string
 	default_hdrs map[string]string
 
-	proxyPoolURL      string
 	proxyTime         time.Duration
-	ratelimitUntil    int64 //现在是遇到一次 412 之后打开，看看这样能不能减缓 412
+	ratelimitUntil    int64 //现在是遇到一次 -412 之后打开，看看这样能不能减缓 -412
 	ratelimitLockPath string
 }
 
@@ -159,7 +157,7 @@ func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.C
 	w.WriteField("category", "daily")
 	w.Close()
 
-	req, _ := http.NewRequest("POST", "https://api.vc.bilibili.com/api/v1/drawImage/upload", &b)
+	req, _ := http.NewRequest("POST", "https://api.vc.bilibili.com/api/v1/drawImage/upload", &b) //bilibili 本身强制 https
 	req = req.WithContext(ctx)
 	for k, v := range d.Headers() {
 		req.Header.Set(k, v)
@@ -169,30 +167,14 @@ func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.C
 
 	//可能需要代理
 	shouldUseProxy := func() bool {
-		return d.proxyPoolURL != "" && time.Now().Unix() < d.ratelimitUntil
+		return ForceProxy || ProxyPoolURL != "" && time.Now().Unix() < d.ratelimitUntil
 	}
 	if shouldUseProxy() {
-		resp2, err := http.Get(d.proxyPoolURL)
+		t, err := getProxyTransport()
 		if err != nil {
 			return "", err
 		}
-
-		defer resp2.Body.Close()
-		v2 := make(map[string]interface{})
-		err = json.NewDecoder(resp2.Body).Decode(&v2)
-		if err != nil {
-			return "", err
-		}
-
-		if a, ok := v2["proxy"].(string); ok {
-			uri, err := url.Parse("http://" + a)
-			if err != nil {
-				return "", err
-			}
-			client.Transport = &http.Transport{
-				Proxy: http.ProxyURL(uri),
-			}
-		}
+		client.Transport = t
 	}
 
 	resp, err := client.Do(req)
@@ -222,7 +204,7 @@ func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.C
 			return "", errors.New("校验值不一致")
 		}
 		return d.GenURL(matchs[1]), nil
-	} else if a == 412 && !shouldUseProxy() { //TODO by ip
+	} else if a == -412 && !shouldUseProxy() { //TODO by ip
 		d.ratelimitUntil = time.Now().Add(d.proxyTime).Unix()
 
 		f, _ := os.OpenFile(d.ratelimitLockPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
@@ -237,7 +219,7 @@ func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.C
 }
 
 func (d *DriverBilibili) SetProxyPool(url string, proxyTime int) {
-	d.proxyPoolURL = url
+	ProxyPoolURL = url
 	d.proxyTime = time.Minute * time.Duration(int64(proxyTime))
 }
 

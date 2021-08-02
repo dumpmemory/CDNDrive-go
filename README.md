@@ -3,6 +3,8 @@
 <h4 align="center">☁️ 喵喵喵喵，喵喵喵喵！ ☁️</h4>
 <h4 align="center">☁️ 支持任意文件的全速上传与下载 ☁️</h4>
 
+<h4 align="center">冻鳗资源分享(频道) https://t.me/cdndrive</h4>
+
 ## 特色
 
 轻量：无复杂依赖，资源占用少
@@ -22,9 +24,32 @@
 5. 下载支持断点续传
 6. 彩色输出
 
-## 安装
+# 下载/运行 说明
 
-下载 release 运行即可。
+Go语言程序, 可直接在[发布页](https://github.com/arm64v8a/CDNDrive-go/releases)下载使用.
+
+如果程序运行时输出乱码, 请检查下终端的编码方式是否为 `UTF-8`.
+
+使用本程序之前, 建议学习一些 linux 基础知识 和 基础命令.
+
+如果未带任何参数运行程序, 程序会提供相关命令的使用说明.
+
+## Windows
+
+程序应在 命令提示符 (Command Prompt) 或 PowerShell 中运行, 在 mintty (例如: GitBash) 可能会有显示问题.
+
+## Linux / macOS
+
+程序应在 终端 (Terminal) 运行.
+
+## Android / iOS
+
+> Android / iOS 移动设备操作比较麻烦, 不建议在移动设备上使用本程序.
+
+安卓, 建议使用 [Termux](https://termux.com) 或 [NeoTerm](https://github.com/NeoTerm/NeoTerm) 或 终端模拟器, 以提供终端环境.
+
+苹果iOS, 需要越狱, 在 Cydia 搜索下载并安装 MobileTerminal, 或者其他提供终端环境的软件.
+
 
 ## 下载文件
 
@@ -96,10 +121,13 @@ CPU 时间大部分消耗在 png.Encode() 上
 |BaijiaDrive   |bjdrive://  |无需登录   |
 |SogouDrive    |sgdrive://  |无需登录   |好像服务器会自动清理文件
 
+欢迎向本项目提交代码添加 Driver （
+
 ## 免责声明
 
 +   请自行对重要文件做好本地备份。
 +   请不要上传含有个人隐私的文件，因为无法删除。
++   尽量不要使用自己帐号上传，以免封号。
 
 ## 致谢
 
