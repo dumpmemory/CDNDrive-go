@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gookit/color"
+	"github.com/urfave/cli/v2"
 )
 
 //所有需要下载的 URL 过一遍
@@ -30,8 +31,12 @@ func _forcehttpsURL(url string, f bool) (retURL string) {
 	return
 }
 
-func HandlerDownload(args []string, forceHTTPS bool, threadN int, batch bool) {
-	if batch {
+func HandlerDownload(c *cli.Context, args []string) {
+	threadN := c.Int("thread")
+	forceHTTPS := c.Bool("https")
+	blockTimeout := c.Int("timeout")
+
+	if c.Bool("batch") {
 		txt_batchdl := "<fg=black;bg=green>批量下载模式：</>"
 		color.Println(txt_batchdl, "请输入链接，可以复制整段文字，会自动匹配。输入一行 end 三个字母，或按 Ctrl+D 结束。")
 		s := bufio.NewScanner(os.Stdin)
@@ -66,17 +71,22 @@ func HandlerDownload(args []string, forceHTTPS bool, threadN int, batch bool) {
 			return
 		}
 
+		var successCounter int
 		for i, metaurl := range metaurls {
 			color.Println(txt_batchdl, "正在下载第", i+1, "/", len(metaurls), "个文件")
-			download(strings.Split(metaurl, "+"), threadN, forceHTTPS)
+			if download(strings.Split(metaurl, "+"), threadN, forceHTTPS, blockTimeout) {
+				successCounter++
+			}
 		}
+
+		color.Println(txt_batchdl, "成功下载了", successCounter, "/", len(metaurls), "个文件")
 	} else {
-		download(strings.Split(args[0], "+"), threadN, forceHTTPS)
+		download(strings.Split(args[0], "+"), threadN, forceHTTPS, blockTimeout)
 	}
 }
 
 //下载一个文件？
-func download(metalinks []string, threadN int, forceHTTPS bool) {
+func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int) (success bool) {
 	//常用文本
 	txt_CannotDownload := "<fg=black;bg=red>下载失败：</>"
 
@@ -215,7 +225,7 @@ func download(metalinks []string, threadN int, forceHTTPS bool) {
 
 	//添加任务，等待完成
 	for j := 0; j < threadN; j++ {
-		go worker_dl(chanTask, chanStatus, ctx, j, forceHTTPS, sources, f, lock, wg, finishMap)
+		go worker_dl(chanTask, chanStatus, ctx, j, forceHTTPS, sources, f, lock, wg, finishMap, blockTimeout)
 	}
 
 	//进度控制
@@ -253,9 +263,10 @@ func download(metalinks []string, threadN int, forceHTTPS bool) {
 	wg.Add(1)
 	wg.Wait()
 	cancel()
+	return true
 }
 
-func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Context, workerID int, forceHTTPS bool, sources map[string][]metaJSON_Block, f *os.File, lock *sync.Mutex, wg *sync.WaitGroup, finishMap []bool) {
+func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Context, workerID int, forceHTTPS bool, sources map[string][]metaJSON_Block, f *os.File, lock *sync.Mutex, wg *sync.WaitGroup, finishMap []bool, blockTimeout int) {
 	txt_CannotDownloadBlock := "<fg=black;bg=red>无法下载分块图片：</>"
 
 	client := &http.Client{}
@@ -271,7 +282,7 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 
 				err := func() (err error) {
 					//下载分块图片
-					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*30))
+					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*time.Duration(blockTimeout)))
 					defer cancel()
 					req, _ := http.NewRequest("GET", _forcehttpsURL(blockDict[task.i].URL, forceHTTPS), nil)
 					req = req.WithContext(ctx2)

@@ -39,6 +39,11 @@ func main() {
 		Usage:   "并发连接数",
 		Value:   4,
 	}
+	flag_blockTimeout := &cli.IntFlag{
+		Name:  "timeout",
+		Usage: "分块传输超时，单位为秒。",
+		Value: 30,
+	}
 
 	app := &cli.App{
 		Name:    "CDNDrive-go",
@@ -72,12 +77,13 @@ func main() {
 						Usage: "批量下载模式",
 					},
 					flag_threadN,
+					flag_blockTimeout,
 				},
 				Action: func(c *cli.Context) error {
 					if c.NArg() == 0 && !c.Bool("batch") {
 						cli.ShowCommandHelpAndExit(c, "download", 1)
 					}
-					HandlerDownload(c.Args().Slice(), c.Bool("https"), c.Int("thread"), c.Bool("batch"))
+					HandlerDownload(c, c.Args().Slice())
 					return nil
 				},
 			}, &cli.Command{
@@ -87,6 +93,7 @@ func main() {
 				Flags: []cli.Flag{
 					flag_threadN,
 					flag_drivers,
+					flag_blockTimeout,
 					&cli.IntFlag{
 						Name:    "block-size",
 						Aliases: []string{"b"},
@@ -130,7 +137,7 @@ func main() {
 					}
 
 					getDriverByName("bili").(*drivers.DriverBilibili).SetProxyPool(c.String("proxy-pool"), c.Int("proxy-time"))
-					HandlerUpload(c.Args().Slice(), ds, c.Int("thread"), c.Int("block-size"), c.Int("cache-size"))
+					HandlerUpload(c, c.Args().Slice(), ds)
 					return nil
 				},
 			}, &cli.Command{
