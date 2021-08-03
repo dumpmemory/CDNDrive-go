@@ -3,6 +3,9 @@ name: Go
 on:
   workflow_dispatch:
     inputs:
+      tag:
+        description: 'Release Tag'
+        required: true
       upload:
         description: 'Upload: If want ignore'
         required: false
