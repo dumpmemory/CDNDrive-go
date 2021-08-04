@@ -29,7 +29,7 @@ type DriverBilibili struct {
 
 	proxyPoolURL      string
 	proxyTime         time.Duration
-	ratelimitUntil    int64 //现在是遇到一次 412 之后打开，看看这样能不能减缓 412
+	ratelimitUntil    int64 //现在是遇到一次 -412 之后打开，看看这样能不能减缓 -412
 	ratelimitLockPath string
 }
 
@@ -222,7 +222,7 @@ func (d *DriverBilibili) Upload(data []byte, ctx context.Context, client *http.C
 			return "", errors.New("校验值不一致")
 		}
 		return d.GenURL(matchs[1]), nil
-	} else if a == 412 && !shouldUseProxy() { //TODO by ip
+	} else if a == -412 && !shouldUseProxy() { //TODO by ip
 		d.ratelimitUntil = time.Now().Add(d.proxyTime).Unix()
 
 		f, _ := os.OpenFile(d.ratelimitLockPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)

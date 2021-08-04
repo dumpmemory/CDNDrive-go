@@ -102,12 +102,11 @@ func main() {
 					}, &cli.StringFlag{
 						Name:    "proxy-pool",
 						Aliases: []string{"pp"},
-
-						Usage: "代理池，对抗 bilibili 限制，遇到 412 才启用。",
+						Usage: "代理池，对抗 bilibili 限制，遇到 -412 才启用。",
 					}, &cli.IntFlag{
 						Name:    "proxy-time",
 						Aliases: []string{"pt"},
-						Usage:   "遇到 bilibili 412 时，启用代理的时间，单位为分钟。",
+						Usage:   "遇到 bilibili -412 时，启用代理的时间，单位为分钟。",
 						Value:   10,
 					}, &cli.IntFlag{
 						Name:    "cache-size",
