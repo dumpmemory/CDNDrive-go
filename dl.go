@@ -2,21 +2,26 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/gookit/color"
 	"github.com/urfave/cli/v2"
 )
+
+var progress *pb.ProgressBar
 
 //所有需要下载的 URL 过一遍
 func _forcehttpsURL(url string, f bool) (retURL string) {
@@ -55,7 +60,13 @@ func HandlerDownload(c *cli.Context, args []string) {
 				if driver == nil {
 					continue
 				}
-				sources = append(sources, driver.Real2Meta(driver.Meta2Real(meta))) //TODO 这样不兼容bdrive
+
+				source := driver.Real2Meta(driver.Meta2Real(meta))
+				if strings.Contains(meta, "bdrive://") { //兼容旧版 bdrive
+					source = strings.Replace(source, "bdex://", "bdrive://", 1)
+				}
+
+				sources = append(sources, source)
 			}
 
 			if len(sources) == 0 {
@@ -94,7 +105,6 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 	time_start := time.Now()
 
 	//解析链接
-
 	var v *metaJSON
 	var blockN int
 	sources := make(map[string][]metaJSON_Block, 0)
@@ -123,15 +133,34 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 		defer resp.Body.Close()
 
 		//尝试解码获取 block dict
-		data, err := readPhotoBytes(resp.Body, d.Encoder())
+		data, err, _ := readPhotoBytes(resp.Body, d.Encoder())
 		if err != nil {
 			colorLogger.Println(txt_CannotDownload, metalink, "readPhotoBytes:", err.Error())
 			continue
 		}
 		v2 := &metaJSON{}
-		err = json.Unmarshal(data, v2)
+		for try := 0; try < 99; try++ {
+			err = json.Unmarshal(data, v2)
+			if err != nil {
+				if _debug {
+					colorLogger.Println(txt_CannotDownload, metalink, "json.Unmarshal:", err.Error())
+					fmt.Println(string(data))
+				}
+				switch try {
+				case 0: //什么bug
+					index := bytes.IndexByte(data, 0)
+					data = data[:index]
+				case 1:
+					data = append(data, []byte("]}")...)
+				case 2:
+					try = 114514
+				}
+			} else {
+				try = 114514
+			}
+		}
 		if err != nil {
-			colorLogger.Println(txt_CannotDownload, metalink, "json.Unmarshal:", err.Error())
+			colorLogger.Println(txt_CannotDownload, metalink, "图片解码成功，但读取信息失败，可能图片已损坏。")
 			continue
 		}
 
@@ -141,7 +170,7 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 			blockN = len(v.BlockDicts)
 		} else { //后面的与第一个源比较
 			if v2.Sha1 != v.Sha1 || v2.Size != v.Size || len(v2.BlockDicts) != blockN {
-				break
+				continue
 			}
 		}
 
@@ -155,8 +184,6 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 		colorLogger.Println(txt_CannotDownload, "无可用下载源")
 		return
 	}
-
-	// colorLogger.Println("<fg=black;bg=green>正在下载链接：</>", link, "类型：", d.DisplayName())
 
 	//本地文件
 	f, err := os.OpenFile(v.FileName, os.O_CREATE|os.O_RDWR, 0644)
@@ -229,8 +256,12 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 	}
 
 	//进度控制
+	if !_debug {
+		_tmpl := `{{ "正在下载：" }} {{bar . }} {{speed . "%s/s" ""}} {{percent .}}`
+		progress = pb.ProgressBarTemplate(_tmpl).Start64(downloadSize)
+		progress.Set(pb.CleanOnFinish, true)
+	}
 	go func() {
-		//TODO 显示速度
 		defer wg.Done()
 		for {
 			select {
@@ -246,13 +277,16 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 				finishMap[finishedBlockID] = true
 				finishedBlockCounter++
 				if _debug {
-					fmt.Println(finishedBlockCounter)
+					fmt.Println("已完成", finishedBlockCounter, len(v.BlockDicts))
 				}
 
 				if finishedBlockCounter == blockN {
 					os.Remove(v.FileName + ".cdndrive")
 					seconds := time.Now().Sub(time_start).Seconds()
-					colorLogger.Printf("<fg=black;bg=green>下载完成：</> <yellow>%s</> 用时 %f 秒，平均速度 %s\n", v.FileName, seconds, ConvertFileSize(int64(float64(downloadSize)/seconds)))
+					if progress != nil {
+						progress.Finish()
+					}
+					colorLogger.Printf("<fg=black;bg=cyan>下载完成：</> <yellow>%s</> 用时 %f 秒，平均速度 %s\n", v.FileName, seconds, ConvertFileSize(int64(float64(downloadSize)/seconds)))
 					return
 				}
 
@@ -280,7 +314,7 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 				//随即抽取一个源下载
 				d, blockDict := randSource(sources)
 
-				err := func() (err error) {
+				err, downloadPhotoSize := func() (err error, downloadPhotoSize int) {
 					//下载分块图片
 					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*time.Duration(blockTimeout)))
 					defer cancel()
@@ -302,7 +336,13 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 					defer resp.Body.Close()
 
 					//尝试解码，校验
-					data, err := readPhotoBytes(resp.Body, d.Encoder())
+					var reader io.Reader
+					if _debug {
+						reader = resp.Body
+					} else {
+						reader = progress.NewProxyReader(resp.Body)
+					}
+					data, err, downloadPhotoSize := readPhotoBytes(reader, d.Encoder())
 					if err != nil {
 						colorLogger.Println(txt_CannotDownloadBlock, "readPhotoBytes", err.Error())
 						return
@@ -328,12 +368,19 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 					}
 					lock.Unlock()
 
-					//完成？
-					colorLogger.Println(d.DisplayName(), "\t分块", task.i+1, "/", len(blockDict), "下载完毕。")
+					//完成
+					if _debug {
+						colorLogger.Println(d.DisplayName(), "\t分块", task.i+1, "/", len(blockDict), "下载完毕。")
+					} else {
+						progress.Add64(int64(task.Size) - resp.ContentLength) //校正回归
+					}
 					chanStatus <- task.i
 					return
 				}()
 				if err != nil {
+					if !_debug {
+						progress.Add(-downloadPhotoSize)
+					}
 					if i < try_max-1 {
 						colorLogger.Println(d.DisplayName(), "\t分块", task.i+1, "第", i+1, "次下载失败，重试。")
 					} else {

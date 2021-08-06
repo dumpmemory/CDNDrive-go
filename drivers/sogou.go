@@ -15,8 +15,7 @@ import (
 	"strings"
 )
 
-//TODO 搜狗上传时 http 经常输出错误日志到 stderr
-//TODO 搜狗上传完之后图片很快就被删除了，草
+//TODO 整天清理文件，爬
 
 type DriverSogou struct {
 	default_url  string
@@ -86,7 +85,7 @@ func (d *DriverSogou) Real2Meta(realURL string) string {
 }
 
 func (d *DriverSogou) CheckCookie(cookie string) (bool, error) {
-	//TODO 这个貌似不需要 Cookie 就能传
+	//这个貌似不需要 Cookie 就能传
 	return true, nil
 }
 

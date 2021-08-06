@@ -80,7 +80,7 @@ func (d *DriverBaijia) Real2Meta(realURL string) string {
 }
 
 func (d *DriverBaijia) CheckCookie(cookie string) (bool, error) {
-	//TODO 这个貌似不需要 Cookie 就能传
+	//这个貌似不需要 Cookie 就能传
 	return true, nil
 }
 
@@ -108,6 +108,15 @@ func (d *DriverBaijia) Upload(data []byte, ctx context.Context, client *http.Cli
 	}
 	req.Header.Set("Cookie", cookie)
 	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	//代理
+	if ForceProxy && ProxyPoolURL != "" {
+		t, err := getProxyTransport()
+		if err != nil {
+			return "", err
+		}
+		client.Transport = t
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {

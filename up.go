@@ -108,12 +108,6 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 			blocks_dict[i].Size = blockSize
 		}
 		_offset += int64(blockSize)
-
-		//Sha1给下面worker算？
-
-		if false { //TODO 续传
-			continue
-		}
 	}
 	colorLogger.Println("<fg=black;bg=green>正在上传：</><yellow>", f.Name(), "</>大小", ConvertFileSize(fileSize), "分块数", blockN, "分块大小", blockSize, "正在计算 sha1sum")
 	if fileSize <= 0 {
@@ -200,7 +194,6 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 
 					finishMaps[ii][finishedBlockID] = true
 					finishedBlockCounter++
-					//TODO 上传在这里保存进度请
 
 					if finishedBlockCounter == blockN {
 						colorLogger.Println(d.DisplayName(), "上传完成，开始编码并上传索引图片。")
@@ -380,7 +373,7 @@ func (p *worker_up) up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx c
 					if i < try_max-1 {
 						colorLogger.Println(d.DisplayName(), "分块", task.i+1, "第", i+1, "次上传失败，重试。")
 					} else {
-						colorLogger.Println(d.DisplayName(), "分块", task.i+1, "第", i+1, "次下载失败，不重试，文件上传失败。")
+						colorLogger.Println(d.DisplayName(), "分块", task.i+1, "第", i+1, "次上传失败，不重试，文件上传失败。")
 						chanStatus <- -1 //停止代码 -1 上传失败
 					}
 				} else {

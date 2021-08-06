@@ -23,7 +23,7 @@ func main() {
 	flag_drivers := &cli.StringFlag{
 		Name:    "driver",
 		Aliases: []string{"d"},
-		Usage: "上传种类，同时上传多个地方请用逗号分割，必须为以下的一个或多个： " + func() (txt string) {
+		Usage: "上传 driver，同时上传多个地方请用逗号分割，必须为以下的一个或多个： " + func() (txt string) {
 			for i := 0; i < len(_drivers); i++ {
 				txt += _drivers[i].Name()
 				if i != len(_drivers)-1 {
@@ -48,7 +48,7 @@ func main() {
 	app := &cli.App{
 		Name:    "CDNDrive-go",
 		Usage:   "Make Picbeds Great Cloud Storages!",
-		Version: "v0.3",
+		Version: "v0.4",
 		Authors: []*cli.Author{
 			&cli.Author{
 				Name: "猫村あおい",
@@ -56,11 +56,11 @@ func main() {
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
-				Name:  "debug",
-				Usage: "调试",
+				Name: "debug",
 			}},
 		Before: func(c *cli.Context) error {
 			_debug = c.Bool("debug")
+			drivers.Debug = _debug
 			return nil
 		},
 		Commands: []*cli.Command{
@@ -102,16 +102,20 @@ func main() {
 					}, &cli.StringFlag{
 						Name:    "proxy-pool",
 						Aliases: []string{"pp"},
-						Usage: "代理池，对抗 bilibili 限制，遇到 -412 才启用。",
+						Usage:   "代理池",
 					}, &cli.IntFlag{
 						Name:    "proxy-time",
 						Aliases: []string{"pt"},
 						Usage:   "遇到 bilibili -412 时，启用代理的时间，单位为分钟。",
 						Value:   10,
+					}, &cli.BoolFlag{
+						Name:    "proxy-force",
+						Aliases: []string{"pf"},
+						Usage:   "强制启用代理池",
 					}, &cli.IntFlag{
 						Name:    "cache-size",
 						Aliases: []string{"cs"},
-						Usage:   "最大缓存分块数",
+						Usage:   "最大缓存分块数，仅对多 driver 上传有效，内存不足时建议调低。",
 						Value:   40,
 					},
 				},
@@ -135,6 +139,7 @@ func main() {
 						}()
 					}
 
+					drivers.ForceProxy = c.Bool("proxy-force")
 					getDriverByName("bili").(*drivers.DriverBilibili).SetProxyPool(c.String("proxy-pool"), c.Int("proxy-time"))
 					HandlerUpload(c, c.Args().Slice(), ds)
 					return nil
