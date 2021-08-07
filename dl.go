@@ -166,9 +166,9 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 				case 2:
 					data = append(data_bak, []byte("]}")...)
 				case 3:
-					data = append(data_bak, []byte("\"]}")...)
+					data = append(data_bak, []byte("}]}")...)
 				case 4:
-					data = append(data_bak, []byte("g\"]}")...)
+					data = append(data_bak, []byte("\"}]}")...)
 				default:
 					try = 114514
 				}
