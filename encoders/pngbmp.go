@@ -49,12 +49,11 @@ func (e *EncoderPNGBMP) DecodeBMP(data []byte) ([]byte, error) {
 //BMP为兼容旧版使用，这里只编码PNG
 //TODO 改善内存
 func (e *EncoderPNGBMP) Encode(data []byte) []byte {
-	l := len(data)
 	var buf bytes.Buffer
 
 	//分辨率
 	minSide, dep := 10, 3
-	side := int(math.Ceil(math.Sqrt(float64(l) / float64(dep))))
+	side := int(math.Ceil(math.Sqrt(float64(len(data)+4) / float64(dep)))) //v0.5以前忘记加上4，最多被吞掉4个字节（默认4M分块不会损坏，但是meta图片可能会）
 	if side < minSide {
 		side = minSide
 	}
@@ -62,7 +61,7 @@ func (e *EncoderPNGBMP) Encode(data []byte) []byte {
 
 	//写入长度
 	buf2 := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf2, uint32(l))
+	binary.LittleEndian.PutUint32(buf2, uint32(len(data)))
 	buf.Write(buf2)
 
 	//写入数据

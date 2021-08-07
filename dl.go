@@ -139,6 +139,9 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 			continue
 		}
 		v2 := &metaJSON{}
+
+		//我自裁
+		var data_bak []byte
 		for try := 0; try < 99; try++ {
 			err = json.Unmarshal(data, v2)
 			if err != nil {
@@ -147,18 +150,33 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 					fmt.Println(string(data))
 				}
 				switch try {
-				case 0: //什么bug
+				case 0:
+					//v0.5之前的一个bug，有几率遇到，请看bmppng.go
+					//理论上最多吞掉4个字节
+					//这4个字节是固定的，手动补回来
+					//缺几个字节后面就会读出几个0
 					index := bytes.IndexByte(data, 0)
-					data = data[:index]
+					if index == -1 {
+						try = 114514
+					} else {
+						data_bak = data[:index]
+					}
 				case 1:
-					data = append(data, []byte("]}")...)
+					data = append(data_bak, []byte("}")...)
 				case 2:
+					data = append(data_bak, []byte("]}")...)
+				case 3:
+					data = append(data_bak, []byte("\"]}")...)
+				case 4:
+					data = append(data_bak, []byte("g\"]}")...)
+				default:
 					try = 114514
 				}
 			} else {
 				try = 114514
 			}
 		}
+		data_bak = nil
 		if err != nil {
 			colorLogger.Println(txt_CannotDownload, metalink, "图片解码成功，但读取信息失败，可能图片已损坏。")
 			continue
