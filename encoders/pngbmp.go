@@ -47,7 +47,6 @@ func (e *EncoderPNGBMP) DecodeBMP(data []byte) ([]byte, error) {
 }
 
 //BMP为兼容旧版使用，这里只编码PNG
-//TODO 改善内存
 func (e *EncoderPNGBMP) Encode(data []byte) []byte {
 	var buf bytes.Buffer
 
