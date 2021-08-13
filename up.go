@@ -83,7 +83,6 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 	blockTimeout := c.Int("timeout")
 
 	//打开文件，读取信息
-	//TODO 上传多个文件？
 	f, err := os.OpenFile(args[0], os.O_RDONLY, 0)
 	if err != nil {
 		colorLogger.Println(txt_uploadFail, err.Error())
@@ -360,7 +359,7 @@ func (p *worker_up) up(chanTask chan *metaJSON_Block, chanStatus chan int, ctx c
 							p.cache.cacheCounter--
 							if _debug {
 								colorLogger.Println("<green>free:", task.i, "</>")
-								//TODO 全部清理完之后还有400M不知道什么东西，是不是http那边泄露的...
+								//TODO 是不是还有内存泄露？
 							}
 						}
 					}

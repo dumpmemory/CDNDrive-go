@@ -71,7 +71,15 @@ OPTIONS:
 
 `CDNDrive download -t 线程数 链接`
 
-链接可以是 `bdex://64ec4075dc3cfa28cf12f147da8f4282d635657b` 这样的单个链接，也可以是 `bdex://7fc4accd6cafa0cdd9168cf5ee81a407cabe89a1+sgdrive://100520146/5C0E029D88D39A6FB795AD8D92CBF101+bjdrive://17a65fbb83c249699a9256c3bcd98a6f` 这样的英文加号分割链接，表示这个文件可以从多个来源下载。
+单来源下载
+
+`bdex://64ec4075dc3cfa28cf12f147da8f4282d635657b`
+
+多来源下载
+
+`bdex://7fc4accd6cafa0cdd9168cf5ee81a407cabe89a1+sgdrive://100520146/5C0E029D88D39A6FB795AD8D92CBF101+bjdrive://17a65fbb83c249699a9256c3bcd98a6f`
+
+英文加号分割的链接，表示这个文件可以从多个来源下载。
 
 ### 使用例：多个文件下载
 
@@ -89,7 +97,9 @@ OPTIONS:
 
 1. 图片编码能力
 
-TestEncode Speed: 10.73M/s
+~~TestEncode Speed: 10.73M/s~~
+
+v0.6 [关闭了PNG的压缩](https://github.com/arm64v8a/CDNDrive-go/pull/1)，图片编码速度加快约四倍。
 
 CPU 时间大部分消耗在 png.Encode() 上
 
@@ -107,7 +117,7 @@ CPU 时间大部分消耗在 png.Encode() 上
 
 默认参数下 (4线程)
 
-内存占用在 200M 以内，CPU 占用在 100% 以内。
+内存占用在 200M 以内，CPU 占用大约一个核心。
 
 一般情况下国内网络均可跑满。
 

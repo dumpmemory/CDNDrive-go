@@ -336,7 +336,8 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 					//下载分块图片
 					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*time.Duration(blockTimeout)))
 					defer cancel()
-					req, _ := http.NewRequest("GET", _forcehttpsURL(blockDict[task.i].URL, forceHTTPS), nil)
+					blockurl := _forcehttpsURL(blockDict[task.i].URL, forceHTTPS)
+					req, _ := http.NewRequest("GET", blockurl, nil)
 					req = req.WithContext(ctx2)
 					for k, v := range d.Headers() {
 						req.Header.Set(k, v)
@@ -360,9 +361,11 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 					} else {
 						reader = progress.NewProxyReader(resp.Body)
 					}
-					data, err, downloadPhotoSize := readPhotoBytes(reader, d.Encoder())
+
+					var data []byte
+					data, err, downloadPhotoSize = readPhotoBytes(reader, d.Encoder())
 					if err != nil {
-						colorLogger.Println(txt_CannotDownloadBlock, "readPhotoBytes", err.Error())
+						colorLogger.Println(txt_CannotDownloadBlock, "readPhotoBytes:", err.Error(), blockurl)
 						return
 					}
 
@@ -390,7 +393,7 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 					if _debug {
 						colorLogger.Println(d.DisplayName(), "\t分块", task.i+1, "/", len(blockDict), "下载完毕。")
 					} else {
-						progress.Add64(int64(task.Size) - resp.ContentLength) //校正回归
+						progress.Add(task.Size - downloadPhotoSize) //校正回归
 					}
 					chanStatus <- task.i
 					return
