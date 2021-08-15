@@ -148,3 +148,31 @@ CPU 时间大部分消耗在 png.Encode() 上
 ## 猫猫很可爱，请给猫猫打钱
 
 https://nekoquq.github.io/about/
+
+# 部分图床调研
+
+|名称|接口|接口情况|图片存活情况|
+|----|----|----|----|
+|今日头条1|mp.toutiao.com/upload_photo|PNG二压|未知
+|阿里客服1|kfupload.alibaba.com/mupload|能上传|听说会[删除](https://ae01.alicdn.com/kf/U4d394a3b39e24923d834409eb81ef7c0neL.jpg)，有的又[活着](https://ae01.alicdn.com/kf/H5fad35d66dca46108a4898efc0c79f7cT.jpg)
+|京东1|myjd.jd.com/afs/common/upload.action|貌似失效|[好像还行](https://img30.360buyimg.com/myjd/jfs/t1/115780/7/160/2878176/5e8821feE7ee8c583/7d151490baadbdc5.png)
+|腾讯1|om.qq.com/image/orginalupload|PNG二压|未知
+|百度识图1|graph.baidu.com/upload|能上传|会删除
+|小米1|shopapi.io.mi.com/homemanage/shop/uploadpic|貌似失效|未知
+|Telegraph|telegra.ph/upload|墙|墙
+|掘金1|cdn-ms.juejin.im/v1/upload|貌似失效|未知
+|网易1|you.163.com/xhr/file/upload.json|貌似失效|未知
+|网易2|upload.buzz.163.com/picupload|能上传|[好像还行](https://dingyue.ws.126.net/2020/0707/3fa02122p00qd2k2b00c2d200he00bmg00gb00av.png)
+|苏宁1|review.suning.com/imageload/uploadImg.do|要登录|未知
+|微博1|picupload.weibo.com/interface/pic_upload.php|要登录|未知
+|360搜索1|graph.baidu.com/upload|能上传|会删除
+|悟空问答1|www.wukong.com/wenda/web/upload/photo/|要登录|未知
+|小米2|qiye.mi.com/index/upload|要登录|未知
+|新浪问答1|iask.sina.com.cn/question/ajax/fileupload|要登录|未知
+|搜狐1|mp.sohu.com/commons/front/outerUpload/image/file|要登录|未知
+|CSDN1|blog-console-api.csdn.net/v1/upload/img|要登录|未知
+
+
+小网站不收录。
+
+加密文件传输（未测试） https://github.com/Mikubill/transfer

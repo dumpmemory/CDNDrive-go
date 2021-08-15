@@ -7,7 +7,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -48,7 +47,7 @@ func main() {
 	app := &cli.App{
 		Name:    "CDNDrive-go",
 		Usage:   "Make Picbeds Great Cloud Storages!",
-		Version: "v0.6",
+		Version: "v0.8",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name: "debug",
@@ -70,6 +69,14 @@ func main() {
 					}, &cli.BoolFlag{
 						Name:  "batch",
 						Usage: "批量下载模式",
+					}, &cli.StringFlag{
+						Name:    "source-filter",
+						Aliases: []string{"sf"},
+						Usage:   "只下载某种链接，如 bdex，用逗号分割",
+					}, &cli.StringSliceFlag{
+						Name:    "replace",
+						Aliases: []string{"r"},
+						Usage:   "替换 URL 中某段文字，如 i0.hdslb.com=i1.hdslb.com",
 					},
 					flag_threadN,
 					flag_blockTimeout,
@@ -115,15 +122,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					//driver过滤，顺便去重
-					ds := make(map[string]drivers.Driver)
-					for _, name := range strings.Split(c.String("driver"), ",") {
-						_d := getDriverByName(name)
-						if _d != nil {
-							ds[name] = _d
-						}
-					}
-
+					ds := vaildDrivers(c.String("driver"))
 					if c.NArg() == 0 || len(ds) == 0 {
 						cli.ShowCommandHelpAndExit(c, "upload", 1)
 					}
@@ -151,15 +150,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					//driver过滤，顺便去重
-					ds := make(map[string]drivers.Driver)
-					for _, name := range strings.Split(c.String("driver"), ",") {
-						_d := getDriverByName(name)
-						if _d != nil {
-							ds[name] = _d
-						}
-					}
-
+					ds := vaildDrivers(c.String("driver"))
 					if c.NArg() == 0 || len(ds) == 0 {
 						cli.ShowCommandHelpAndExit(c, "cookie", 1)
 					}

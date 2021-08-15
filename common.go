@@ -7,9 +7,11 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"reflect"
+	"strings"
 	"time"
 
-	"github.com/gookit/color"
+	color "CDNDrive/gookit_color"
 )
 
 //CDNDrive的格式
@@ -69,9 +71,22 @@ func readPhotoBytes(r io.Reader, e encoders.Encoder) ([]byte, error, int) {
 	return c, d, len(b)
 }
 
+//driver过滤，顺便去重
+func vaildDrivers(driverString string) map[string]drivers.Driver {
+	ds := make(map[string]drivers.Driver)
+	for _, name := range strings.Split(driverString, ",") {
+		_d := getDriverByName(name)
+		if _d != nil {
+			ds[name] = _d
+		}
+	}
+	return ds
+}
+
+//颜色支持
+
 type colorLogger_t struct {
-	logWriter io.Writer
-	prefix    func() string
+	prefix func() string
 }
 
 var colorLogger *colorLogger_t
@@ -147,4 +162,20 @@ func randSource(m map[string][]metaJSON_Block) (drivers.Driver, []metaJSON_Block
 		r--
 	}
 	panic("unreachable")
+}
+
+func In(haystack interface{}, needle interface{}) bool {
+	sVal := reflect.ValueOf(haystack)
+	kind := sVal.Kind()
+	if kind == reflect.Slice || kind == reflect.Array {
+		for i := 0; i < sVal.Len(); i++ {
+			if sVal.Index(i).Interface() == needle {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return false
 }
