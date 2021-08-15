@@ -75,6 +75,10 @@ func main() {
 					}, &cli.BoolFlag{
 						Name:  "batch",
 						Usage: "批量下载模式",
+					}, &cli.StringFlag{
+						Name:    "source-filter",
+						Aliases: []string{"sf"},
+						Usage:   "只下载某种链接，如 bdex，用逗号分割",
 					},
 					flag_threadN,
 					flag_blockTimeout,

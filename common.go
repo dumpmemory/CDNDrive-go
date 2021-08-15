@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"reflect"
 	"time"
 
 	color "CDNDrive/gookit_color"
@@ -148,4 +149,20 @@ func randSource(m map[string][]metaJSON_Block) (drivers.Driver, []metaJSON_Block
 		r--
 	}
 	panic("unreachable")
+}
+
+func In(haystack interface{}, needle interface{}) bool {
+	sVal := reflect.ValueOf(haystack)
+	kind := sVal.Kind()
+	if kind == reflect.Slice || kind == reflect.Array {
+		for i := 0; i < sVal.Len(); i++ {
+			if sVal.Index(i).Interface() == needle {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return false
 }

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -37,16 +38,29 @@ func _forcehttpsURL(url string, f bool) (retURL string) {
 	return
 }
 
+//过滤出指定的 sources
+func _sourcesFilter(sources []string, sourceFilter []string) []string {
+	ret := make([]string, 0)
+	for _, source := range sources {
+		if u, _ := url.Parse(source); len(sourceFilter) > 0 && !In(sourceFilter, u.Scheme) {
+			continue
+		}
+		ret = append(ret, source)
+	}
+	return ret
+}
+
 func HandlerDownload(c *cli.Context, args []string) {
 	threadN := c.Int("thread")
 	forceHTTPS := c.Bool("https")
 	blockTimeout := c.Int("timeout")
+	sourceFilter := strings.Split(c.String("source-filter"), ",")
 
 	if c.Bool("batch") {
 		txt_batchdl := "<fg=black;bg=green>批量下载模式：</>"
 		color.Println(txt_batchdl, "请输入链接，可以复制整段文字，会自动匹配。输入一行 end 三个字母，或按 Ctrl+D 结束。")
 		s := bufio.NewScanner(os.Stdin)
-		metaurls := make([]string, 0)
+		files := make([]string, 0)
 
 		for s.Scan() {
 			line := s.Text()
@@ -69,31 +83,32 @@ func HandlerDownload(c *cli.Context, args []string) {
 
 				sources = append(sources, source)
 			}
+			sources = _sourcesFilter(sources, sourceFilter)
 
 			if len(sources) == 0 {
 				continue
 			}
-			metaurls = append(metaurls, strings.Join(sources, "+"))
+			files = append(files, strings.Join(sources, "+"))
 		}
 
-		if len(metaurls) > 0 {
-			color.Println(txt_batchdl, "检测到", len(metaurls), "个链接，开始下载。")
+		if len(files) > 0 {
+			color.Println(txt_batchdl, "检测到", len(files), "个链接，开始下载。")
 		} else {
 			color.Println(txt_batchdl, "没有检测到链接。")
 			return
 		}
 
 		var successCounter int
-		for i, metaurl := range metaurls {
-			color.Println(txt_batchdl, "正在下载第", i+1, "/", len(metaurls), "个文件")
+		for i, metaurl := range files {
+			color.Println(txt_batchdl, "正在下载第", i+1, "/", len(files), "个文件")
 			if download(strings.Split(metaurl, "+"), threadN, forceHTTPS, blockTimeout) {
 				successCounter++
 			}
 		}
 
-		color.Println(txt_batchdl, "成功下载了", successCounter, "/", len(metaurls), "个文件")
+		color.Println(txt_batchdl, "成功下载了", successCounter, "/", len(files), "个文件")
 	} else {
-		download(strings.Split(args[0], "+"), threadN, forceHTTPS, blockTimeout)
+		download(_sourcesFilter(strings.Split(args[0], "+"), sourceFilter), threadN, forceHTTPS, blockTimeout)
 	}
 }
 
