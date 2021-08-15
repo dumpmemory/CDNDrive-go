@@ -16,8 +16,9 @@ import (
 	"sync"
 	"time"
 
+	color "CDNDrive/gookit_color"
+
 	"github.com/cheggaaa/pb/v3"
-	"github.com/gookit/color"
 	"github.com/urfave/cli/v2"
 )
 

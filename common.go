@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/gookit/color"
+	color "CDNDrive/gookit_color"
 )
 
 //CDNDrive的格式
@@ -69,9 +69,10 @@ func readPhotoBytes(r io.Reader, e encoders.Encoder) ([]byte, error, int) {
 	return c, d, len(b)
 }
 
+//颜色支持
+
 type colorLogger_t struct {
-	logWriter io.Writer
-	prefix    func() string
+	prefix func() string
 }
 
 var colorLogger *colorLogger_t
