@@ -26,14 +26,15 @@ import (
 var progress *pb.ProgressBar
 
 //所有需要下载的 URL 过一遍
-func _forcehttpsURL(url string, f bool) (retURL string) {
+func _replaceURL(url string, replace map[string]string) (retURL string) {
 	retURL = url
-	if _debug {
-		fmt.Println(url, f)
+
+	for k, v := range replace {
+		retURL = strings.Replace(retURL, k, v, 1)
 	}
-	if f {
-		retURL = strings.Replace(retURL, "http://", "https://", 1)
-		return
+
+	if _debug {
+		fmt.Println(url, retURL)
 	}
 	return
 }
@@ -62,6 +63,20 @@ func HandlerDownload(c *cli.Context, args []string) {
 	forceHTTPS := c.Bool("https")
 	blockTimeout := c.Int("timeout")
 	sourceFilterString := c.String("source-filter")
+
+	//替换 URL
+	replace := make(map[string]string)
+	if forceHTTPS {
+		replace["http://"] = "https://"
+	}
+	for _, r := range c.StringSlice("replace") {
+		toReplace := strings.Split(r, "=")
+		if len(toReplace) != 2 {
+			colorLogger.Println("<red>replace</> 参数填写有误")
+			return
+		}
+		replace[toReplace[0]] = toReplace[1]
+	}
 
 	if c.Bool("batch") {
 		txt_batchdl := "<fg=black;bg=green>批量下载模式：</>"
@@ -108,19 +123,19 @@ func HandlerDownload(c *cli.Context, args []string) {
 		var successCounter int
 		for i, metaurl := range files {
 			color.Println(txt_batchdl, "正在下载第", i+1, "/", len(files), "个文件")
-			if download(strings.Split(metaurl, "+"), threadN, forceHTTPS, blockTimeout) {
+			if download(strings.Split(metaurl, "+"), threadN, blockTimeout, replace) {
 				successCounter++
 			}
 		}
 
 		color.Println(txt_batchdl, "成功下载了", successCounter, "/", len(files), "个文件")
 	} else {
-		download(_sourcesFilter(strings.Split(args[0], "+"), sourceFilterString), threadN, forceHTTPS, blockTimeout)
+		download(_sourcesFilter(strings.Split(args[0], "+"), sourceFilterString), threadN, blockTimeout, replace)
 	}
 }
 
 //下载一个文件？
-func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int) (success bool) {
+func download(metalinks []string, threadN int, blockTimeout int, replace map[string]string) (success bool) {
 	//常用文本
 	txt_CannotDownload := "<fg=black;bg=red>下载失败：</>"
 
@@ -140,7 +155,7 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 		}
 
 		//获取 block dict 图片
-		req, _ := http.NewRequest("GET", _forcehttpsURL(d.Meta2Real(metalink), forceHTTPS), nil)
+		req, _ := http.NewRequest("GET", _replaceURL(d.Meta2Real(metalink), replace), nil)
 		for k, v := range d.Headers() {
 			req.Header.Set(k, v)
 		}
@@ -293,7 +308,7 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 
 	//添加任务，等待完成
 	for j := 0; j < threadN; j++ {
-		go worker_dl(chanTask, chanStatus, ctx, j, forceHTTPS, sources, f, lock, wg, finishMap, blockTimeout)
+		go worker_dl(chanTask, chanStatus, ctx, j, sources, f, lock, finishMap, blockTimeout, replace)
 	}
 
 	//进度控制
@@ -341,7 +356,7 @@ func download(metalinks []string, threadN int, forceHTTPS bool, blockTimeout int
 	return true
 }
 
-func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Context, workerID int, forceHTTPS bool, sources map[string][]metaJSON_Block, f *os.File, lock *sync.Mutex, wg *sync.WaitGroup, finishMap []bool, blockTimeout int) {
+func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Context, workerID int, sources map[string][]metaJSON_Block, f *os.File, lock *sync.Mutex, finishMap []bool, blockTimeout int, replace map[string]string) {
 	txt_CannotDownloadBlock := "<fg=black;bg=red>无法下载分块图片：</>"
 
 	client := &http.Client{}
@@ -359,7 +374,7 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 					//下载分块图片
 					ctx2, cancel := context.WithDeadline(ctx, time.Now().Add(time.Second*time.Duration(blockTimeout)))
 					defer cancel()
-					blockurl := _forcehttpsURL(blockDict[task.i].URL, forceHTTPS)
+					blockurl := _replaceURL(blockDict[task.i].URL, replace)
 					req, _ := http.NewRequest("GET", blockurl, nil)
 					req = req.WithContext(ctx2)
 					for k, v := range d.Headers() {

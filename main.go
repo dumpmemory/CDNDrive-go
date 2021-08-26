@@ -78,6 +78,10 @@ func main() {
 						Name:    "source-filter",
 						Aliases: []string{"sf"},
 						Usage:   "只下载某种链接，如 bdex，用逗号分割",
+					}, &cli.StringSliceFlag{
+						Name:    "replace",
+						Aliases: []string{"r"},
+						Usage:   "替换 URL 中某段文字，如 i0.hdslb.com=i1.hdslb.com",
 					},
 					flag_threadN,
 					flag_blockTimeout,
