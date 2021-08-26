@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"reflect"
+	"strings"
 	"time"
 
 	color "CDNDrive/gookit_color"
@@ -68,6 +69,18 @@ func readPhotoBytes(r io.Reader, e encoders.Encoder) ([]byte, error, int) {
 	}
 	c, d := e.Decode(b)
 	return c, d, len(b)
+}
+
+//driver过滤，顺便去重
+func vaildDrivers(driverString string) map[string]drivers.Driver {
+	ds := make(map[string]drivers.Driver)
+	for _, name := range strings.Split(driverString, ",") {
+		_d := getDriverByName(name)
+		if _d != nil {
+			ds[name] = _d
+		}
+	}
+	return ds
 }
 
 //颜色支持

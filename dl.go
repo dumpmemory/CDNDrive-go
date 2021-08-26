@@ -39,8 +39,15 @@ func _forcehttpsURL(url string, f bool) (retURL string) {
 }
 
 //过滤出指定的 sources
-func _sourcesFilter(sources []string, sourceFilter []string) []string {
+func _sourcesFilter(sources []string, sourceFilterString string) []string {
 	ret := make([]string, 0)
+
+	//保证 sourceFilter 为有效值（未提供 -sf 时不要变成 [""]
+	sourceFilter := strings.Split(sourceFilterString, ",")
+	if sourceFilterString == "" { //未提供的情况，不进行过滤
+		return sources
+	}
+
 	for _, source := range sources {
 		if u, _ := url.Parse(source); len(sourceFilter) > 0 && !In(sourceFilter, u.Scheme) {
 			continue
@@ -54,7 +61,7 @@ func HandlerDownload(c *cli.Context, args []string) {
 	threadN := c.Int("thread")
 	forceHTTPS := c.Bool("https")
 	blockTimeout := c.Int("timeout")
-	sourceFilter := strings.Split(c.String("source-filter"), ",")
+	sourceFilterString := c.String("source-filter")
 
 	if c.Bool("batch") {
 		txt_batchdl := "<fg=black;bg=green>批量下载模式：</>"
@@ -83,7 +90,7 @@ func HandlerDownload(c *cli.Context, args []string) {
 
 				sources = append(sources, source)
 			}
-			sources = _sourcesFilter(sources, sourceFilter)
+			sources = _sourcesFilter(sources, sourceFilterString)
 
 			if len(sources) == 0 {
 				continue
@@ -108,7 +115,7 @@ func HandlerDownload(c *cli.Context, args []string) {
 
 		color.Println(txt_batchdl, "成功下载了", successCounter, "/", len(files), "个文件")
 	} else {
-		download(_sourcesFilter(strings.Split(args[0], "+"), sourceFilter), threadN, forceHTTPS, blockTimeout)
+		download(_sourcesFilter(strings.Split(args[0], "+"), sourceFilterString), threadN, forceHTTPS, blockTimeout)
 	}
 }
 

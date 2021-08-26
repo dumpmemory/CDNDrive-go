@@ -7,7 +7,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -124,15 +123,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					//driver过滤，顺便去重
-					ds := make(map[string]drivers.Driver)
-					for _, name := range strings.Split(c.String("driver"), ",") {
-						_d := getDriverByName(name)
-						if _d != nil {
-							ds[name] = _d
-						}
-					}
-
+					ds := vaildDrivers(c.String("driver"))
 					if c.NArg() == 0 || len(ds) == 0 {
 						cli.ShowCommandHelpAndExit(c, "upload", 1)
 					}
@@ -160,15 +151,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					//driver过滤，顺便去重
-					ds := make(map[string]drivers.Driver)
-					for _, name := range strings.Split(c.String("driver"), ",") {
-						_d := getDriverByName(name)
-						if _d != nil {
-							ds[name] = _d
-						}
-					}
-
+					ds := vaildDrivers(c.String("driver"))
 					if c.NArg() == 0 || len(ds) == 0 {
 						cli.ShowCommandHelpAndExit(c, "cookie", 1)
 					}
