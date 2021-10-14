@@ -288,7 +288,7 @@ func download(metalinks []string, threadN int, blockTimeout int, replace map[str
 	lock := &sync.Mutex{}
 
 	var _offset int64
-	var downloadSize int64
+	var downloadSize int64 //本次需要下载的大小
 	var finishedBlockCounter int
 
 	for i, task := range v.BlockDicts {
@@ -314,7 +314,8 @@ func download(metalinks []string, threadN int, blockTimeout int, replace map[str
 	//进度控制
 	if !_debug {
 		_tmpl := `{{ "正在下载：" }} {{bar . }} {{speed . "%s/s" ""}} {{percent .}}`
-		progress = pb.ProgressBarTemplate(_tmpl).Start64(downloadSize)
+		progress = pb.ProgressBarTemplate(_tmpl).Start64(v.Size)
+		progress.Add64(v.Size - downloadSize)
 		progress.Set(pb.CleanOnFinish, true)
 	}
 	go func() {
