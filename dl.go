@@ -80,7 +80,7 @@ func HandlerDownload(c *cli.Context, args []string) {
 
 	if c.Bool("batch") {
 		txt_batchdl := "<fg=black;bg=green>批量下载模式：</>"
-		color.Println(txt_batchdl, "请输入链接，可以复制整段文字，会自动匹配。输入一行 end 三个字母，或按 Ctrl+D 结束。")
+		color.Println(txt_batchdl, "请输入链接，一行一个。可以直接粘贴合集，程序会自动识别。输入一行 end 三个字母，或按 Ctrl+D 开始下载。")
 		s := bufio.NewScanner(os.Stdin)
 		files := make([]string, 0)
 
@@ -216,7 +216,7 @@ func download(metalinks []string, threadN int, blockTimeout int, replace map[str
 		}
 		data_bak = nil
 		if err != nil {
-			colorLogger.Println(txt_CannotDownload, metalink, "图片解码成功，但读取信息失败，可能图片已损坏。")
+			colorLogger.Println(txt_CannotDownload, metalink, "链接元数据下载成功，但无法识别，可能索引图片已损坏。")
 			continue
 		}
 
@@ -263,15 +263,15 @@ func download(metalinks []string, threadN int, blockTimeout int, replace map[str
 				finishMap_read = true
 			}
 		} else if stat.Size() > 0 {
-			colorLogger.Println(txt_CannotDownload, "文件已经存在")
+			colorLogger.Println(txt_CannotDownload, "文件已经存在。")
 			return
 		}
 	} else if stat.Size() == v.Size {
-		colorLogger.Println(txt_CannotDownload, "文件已经存在，并且大小一致")
+		colorLogger.Println(txt_CannotDownload, "文件已经存在，并且大小一致。")
 		return
 		//TODO sha1校验看看？
 	} else {
-		colorLogger.Println(txt_CannotDownload, "文件已经存在")
+		colorLogger.Println(txt_CannotDownload, "文件已经存在。")
 		return
 	}
 
@@ -358,7 +358,7 @@ func download(metalinks []string, threadN int, blockTimeout int, replace map[str
 }
 
 func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Context, workerID int, sources map[string][]metaJSON_Block, f *os.File, lock *sync.Mutex, finishMap []bool, blockTimeout int, replace map[string]string) {
-	txt_CannotDownloadBlock := "<fg=black;bg=red>无法下载分块图片：</>"
+	txt_CannotDownloadBlock := "<fg=black;bg=red>分块图片下载错误：</>"
 
 	client := &http.Client{}
 	for {

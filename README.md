@@ -15,7 +15,7 @@
 
 快速：支持多线程传输与断点续传，同时借助各个站点的 CDN 资源，能最大化地利用网络环境进行上传与下载
 
-相对与 Python 版 apachecn/CDNDrive 本项目优势：
+相较于 Python 版 CDNDrive 本项目优势：
 
 1. 内存占用更小
 2. Go 语言编写，跨平台便携性好
@@ -50,6 +50,11 @@ Go语言程序, 可直接在[发布页](https://github.com/arm64v8a/CDNDrive-go/
 
 苹果iOS, 需要越狱, 在 Cydia 搜索下载并安装 MobileTerminal, 或者其他提供终端环境的软件.
 
+### Android DNS 问题
+
+由于 Android 系统 不同于正常 Linux 系统的 DNS 机制，预编译的 CDNDrive-go 在 Android 下会出现 read udp connection refuesd 类似错误。
+
+目前推荐解决方法：使用 [Termux](https://termux.com) 安装 Golang 并重新编译本程序。
 
 ## 下载文件
 
@@ -61,10 +66,13 @@ USAGE:
    CDNDrive download [command options] [arguments...]
 
 OPTIONS:
-   --https                   强制使用https (default: false)
-   --batch                   批量下载模式 (default: false)
-   --thread value, -t value  并发连接数 (default: 4)
-   --help, -h                show help (default: false)
+   --https                            强制使用https (default: false)
+   --batch                            批量下载模式 (default: false)
+   --source-filter value, --sf value  只下载某种链接，如 bdex，用逗号分割
+   --replace value, -r value          替换 URL 中某段文字，如 i0.hdslb.com=i1.hdslb.com
+   --thread value, -t value           并发连接数 (default: 4)
+   --timeout value                    分块传输超时，单位为秒。 (default: 30)
+   --help, -h                         show help (default: false)
 ```
 
 ### 使用例：单个文件下载
@@ -79,7 +87,7 @@ OPTIONS:
 
 `bdex://7fc4accd6cafa0cdd9168cf5ee81a407cabe89a1+sgdrive://100520146/5C0E029D88D39A6FB795AD8D92CBF101+bjdrive://17a65fbb83c249699a9256c3bcd98a6f`
 
-英文加号分割的链接，表示这个文件可以从多个来源下载。
+半角加号分割的链接，表示这个文件可以从多个来源下载。
 
 ### 使用例：多个文件下载
 
@@ -110,16 +118,15 @@ CPU 时间大部分消耗在 png.Encode() 上
 单 driver 16 线程上传，Python CDNDrive 占用约 3GB，CDNDrive-go 占用约 300MB
 
 三 driver 16 线程同时上传，网络顺畅时占用约 400MB ，网络不顺畅时会内存泄露，可以通过调整参数缓解，默认条件下大概在 1GB 左右。
-
-可能还存在其他内存泄露的问题。
-
 ### 下载
 
-默认参数下 (4线程)
+默认参数下 (4线程http)
 
 内存占用在 200M 以内，CPU 占用大约一个核心。
 
 一般情况下国内网络均可跑满。
+
+尽量不要使用 https ，因为 https 会使多个下载线程复用同一条连接，容易出现速度瓶颈。
 
 ## 支持情况
 
@@ -135,7 +142,7 @@ CPU 时间大部分消耗在 png.Encode() 上
 
 ## 免责声明
 
-+   请自行对重要文件做好本地备份。
++   请自行对重要文件做好本地备份，图床里的图片随时可能被删除。
 +   请不要上传含有个人隐私的文件，因为无法删除。
 +   尽量不要使用自己帐号上传，以免封号。
 
