@@ -21,9 +21,7 @@ type DriverBaijia struct {
 
 func NewDriverBaijia() *DriverBaijia {
 	d := &DriverBaijia{}
-	d.default_hdrs = map[string]string{
-		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.182 Safari/537.36",
-	}
+	d.default_hdrs = map[string]string{}
 	d.default_url = "http://pic.rmb.bdstatic.com/bjh/{md5}.png"
 	return d
 }

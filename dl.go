@@ -78,6 +78,17 @@ func HandlerDownload(c *cli.Context, args []string) {
 		replace[toReplace[0]] = toReplace[1]
 	}
 
+	//header
+	header := make(map[string]string)
+	for _, r := range c.StringSlice("header") {
+		toReplace := strings.Split(r, ":")
+		if len(toReplace) != 2 {
+			colorLogger.Println("<red>header</> 参数填写有误")
+			return
+		}
+		header[strings.TrimSpace(toReplace[0])] = strings.TrimSpace(toReplace[1])
+	}
+
 	if c.Bool("batch") {
 		txt_batchdl := "<fg=black;bg=green>批量下载模式：</>"
 		color.Println(txt_batchdl, "请输入链接，一行一个。可以直接粘贴合集，程序会自动识别。输入一行 end 三个字母，或按 Ctrl+D 开始下载。")
@@ -123,19 +134,19 @@ func HandlerDownload(c *cli.Context, args []string) {
 		var successCounter int
 		for i, metaurl := range files {
 			color.Println(txt_batchdl, "正在下载第", i+1, "/", len(files), "个文件")
-			if download(strings.Split(metaurl, "+"), threadN, blockTimeout, replace) {
+			if download(strings.Split(metaurl, "+"), threadN, blockTimeout, replace, header) {
 				successCounter++
 			}
 		}
 
 		color.Println(txt_batchdl, "成功下载了", successCounter, "/", len(files), "个文件")
 	} else {
-		download(_sourcesFilter(strings.Split(args[0], "+"), sourceFilterString), threadN, blockTimeout, replace)
+		download(_sourcesFilter(strings.Split(args[0], "+"), sourceFilterString), threadN, blockTimeout, replace, header)
 	}
 }
 
 //下载一个文件？
-func download(metalinks []string, threadN int, blockTimeout int, replace map[string]string) (success bool) {
+func download(metalinks []string, threadN int, blockTimeout int, replace, header map[string]string) (success bool) {
 	//常用文本
 	txt_CannotDownload := "<fg=black;bg=red>下载失败：</>"
 
@@ -157,6 +168,9 @@ func download(metalinks []string, threadN int, blockTimeout int, replace map[str
 		//获取 block dict 图片
 		req, _ := http.NewRequest("GET", _replaceURL(d.Meta2Real(metalink), replace), nil)
 		for k, v := range d.Headers() {
+			req.Header.Set(k, v)
+		}
+		for k, v := range header {
 			req.Header.Set(k, v)
 		}
 		resp, err := http.DefaultClient.Do(req)
@@ -308,7 +322,7 @@ func download(metalinks []string, threadN int, blockTimeout int, replace map[str
 
 	//添加任务，等待完成
 	for j := 0; j < threadN; j++ {
-		go worker_dl(chanTask, chanStatus, ctx, j, sources, f, lock, finishMap, blockTimeout, replace)
+		go worker_dl(chanTask, chanStatus, ctx, j, sources, f, lock, finishMap, blockTimeout, replace, header)
 	}
 
 	//进度控制
@@ -357,7 +371,7 @@ func download(metalinks []string, threadN int, blockTimeout int, replace map[str
 	return true
 }
 
-func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Context, workerID int, sources map[string][]metaJSON_Block, f *os.File, lock *sync.Mutex, finishMap []bool, blockTimeout int, replace map[string]string) {
+func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Context, workerID int, sources map[string][]metaJSON_Block, f *os.File, lock *sync.Mutex, finishMap []bool, blockTimeout int, replace, header map[string]string) {
 	txt_CannotDownloadBlock := "<fg=black;bg=red>分块图片下载错误：</>"
 
 	client := &http.Client{}
@@ -381,7 +395,9 @@ func worker_dl(chanTask chan metaJSON_Block, chanStatus chan int, ctx context.Co
 					for k, v := range d.Headers() {
 						req.Header.Set(k, v)
 					}
-
+					for k, v := range header {
+						req.Header.Set(k, v)
+					}
 					resp, err := client.Do(req)
 					if err != nil {
 						colorLogger.Println(txt_CannotDownloadBlock, err.Error())

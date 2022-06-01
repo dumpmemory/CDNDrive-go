@@ -35,7 +35,6 @@ func NewDriverBilibili() *DriverBilibili {
 	d := &DriverBilibili{}
 	d.app_key = "1d8b6e7d45233436"
 	d.default_hdrs = map[string]string{
-		"User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
 		"Accept":          "application/json, text/plain, */*",
 		"Accept-Encoding": "gzip, deflate",
 		"Origin":          "https://t.bilibili.com",
