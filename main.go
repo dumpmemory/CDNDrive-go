@@ -77,6 +77,9 @@ func main() {
 						Name:    "replace",
 						Aliases: []string{"r"},
 						Usage:   "替换 URL 中某段文字，如 i0.hdslb.com=i1.hdslb.com",
+					}, &cli.StringSliceFlag{
+						Name:  "header",
+						Usage: "额外的 Http Header 如 User-Agent: Go-http-client/1.1",
 					},
 					flag_threadN,
 					flag_blockTimeout,
