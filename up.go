@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"net/http"
 	"os"
@@ -96,6 +97,7 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 	blockSize := c.Int("block-size")
 	threadN := c.Int("thread")
 	blockTimeout := c.Int("timeout")
+	fileAsPhoto := c.Int("photo") > 0
 
 	//打开文件，读取信息
 	f, err := os.OpenFile(args[0], os.O_RDONLY, 0)
@@ -107,6 +109,16 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 	fileSize := fs.Size()
 	fileName := filepath.Base(f.Name())
 	fileName_display := "<yellow>" + fileName + "</>"
+	if fileSize == 0 {
+		colorLogger.Println(txt_uploadFail, "不能上传空文件")
+		return
+	}
+
+	//fileAsPhoto: 直接上传图片
+	var fileAsPhoto_photo []byte
+	if fileAsPhoto {
+		fileAsPhoto_photo, _ = ioutil.ReadAll(f)
+	}
 
 	//分块计算
 	driverN := len(ds)
@@ -210,7 +222,9 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 					finishedBlockCounter++
 
 					if finishedBlockCounter == blockN {
-						colorLogger.Println(d.DisplayName(), "上传完成，开始编码并上传索引图片。")
+						if !fileAsPhoto {
+							colorLogger.Println(d.DisplayName(), "上传完成，开始编码并上传索引图片。")
+						}
 
 						//这个是要上传的meta
 						blocks_dict_copy := make([]metaJSON_Block, blockN)
@@ -231,7 +245,17 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 
 						try_max := 10
 						for i := 0; i < try_max; i++ { //尝试10次
-							url, err := d.Upload(d.Encoder().Encode(data), ctx, http.DefaultClient, cookie)
+							var photo []byte
+
+							if c.Int("photo") == 1 {
+								photo = fileAsPhoto_photo
+							} else if c.Int("photo") == 2 {
+								photo = d.Encoder().Encode(fileAsPhoto_photo)
+							} else {
+								photo = d.Encoder().Encode(data)
+							}
+
+							url, err := d.Upload(photo, ctx, http.DefaultClient, cookie)
 
 							if err != nil {
 								if i < try_max-1 {
@@ -244,7 +268,11 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 							} else {
 								seconds := time.Now().Sub(time_start).Seconds()
 								colorLogger.Println(d.DisplayName(), fileName_display, "上传完毕，用时", seconds, "秒，平均速度", ConvertFileSize(int64(float64(fileSize)/seconds)))
-								colorLogger.Println(d.DisplayName(), fileName_display, "上传完毕 <green>META URL</> ->", d.Real2Meta(url))
+								if !fileAsPhoto {
+									colorLogger.Println(d.DisplayName(), fileName_display, "上传完毕 <green>META URL</> ->", d.Real2Meta(url))
+								} else {
+									colorLogger.Println(d.DisplayName(), fileName_display, "上传完毕 ->", url)
+								}
 								cancels[ii]()
 								return
 							}
@@ -260,8 +288,15 @@ func HandlerUpload(c *cli.Context, args []string, ds map[string]drivers.Driver) 
 				cache:        cache,
 				blockTimeout: blockTimeout,
 			}
-
-			go up.up(chanTasks[ii], chanStatus[ii], ctxs[ii], cookie, _d, f, lock, finishMaps[ii], finishurls[ii])
+			if !fileAsPhoto {
+				go up.up(chanTasks[ii], chanStatus[ii], ctxs[ii], cookie, _d, f, lock, finishMaps[ii], finishurls[ii])
+			} else { //只上传图片，就直接finish
+				go func(ii int) {
+					for i := 0; i < blockN; i++ {
+						chanStatus[ii] <- i
+					}
+				}(ii)
+			}
 		}
 
 		ii++
