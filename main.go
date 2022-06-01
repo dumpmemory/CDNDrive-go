@@ -47,7 +47,7 @@ func main() {
 	app := &cli.App{
 		Name:    "CDNDrive-go",
 		Usage:   "Make Picbeds Great Cloud Storages!",
-		Version: "v0.9.1",
+		Version: "v0.10",
 		Authors: []*cli.Author{
 			&cli.Author{
 				Name: "猫村あおい",
@@ -122,6 +122,10 @@ func main() {
 						Name:    "proxy-force",
 						Aliases: []string{"pf"},
 						Usage:   "强制启用代理池",
+					}, &cli.IntFlag{
+						Name:    "photo",
+						Aliases: []string{"p"},
+						Usage:   "当作 PNG 图片上传 (0: 不当作 PNG 1:当作 PNG 图片上传 2:编码成 CDNDrive 格式上传) 不懂勿动",
 					}, &cli.IntFlag{
 						Name:    "cache-size",
 						Aliases: []string{"cs"},
